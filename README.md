@@ -105,9 +105,7 @@ public repo.
 - Very large client folders (thousands of documents) may take a while, especially with
   "Include document links" checked, since that adds one extra API call per document.
   Uncheck it for a faster run without the `Document Link` column populated.
-- `Ownership` currently mirrors `Added By` (the item's creator) — ShareFile's API
-  doesn't expose a separate "owner" distinct from creator in a way reliable enough to
-  build against sight-unseen. If your ShareFile setup does distinguish them and you
-  want that reflected, flag it and this can be refined.
+- `Ownership` reflects ShareFile's `Owner` field, falling back to the creator if an
+  item has no distinct owner set.
 - `Organization` reflects the creator's Company field in ShareFile, which isn't always
   populated; it may be blank for some or all items.

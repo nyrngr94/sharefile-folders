@@ -19,6 +19,7 @@ public sealed class ShareFileItemInfo
     public DateTime? ModifiedDate { get; set; }
     public string? CreatorName { get; set; }
     public string? CreatorCompany { get; set; }
+    public string? OwnerName { get; set; }
 }
 
 public sealed class ShareFileAuthException : Exception
@@ -134,8 +135,8 @@ public sealed class ShareFileClient : IDisposable
 
     public async Task<List<ShareFileItemInfo>> GetChildrenAsync(string folderId, CancellationToken ct = default)
     {
-        var select = "Id,Name,FileName,FileSizeBytes,FileCount,CreationDate,ClientModifiedDate,ProgenyEditDate";
-        var url = $"{_baseUrl}/Items({folderId})/Children?$select={select}&$expand=Creator&$top=1000";
+        var select = "Id,Name,FileName,FileSizeBytes,FileCount,CreationDate,ClientModifiedDate,ProgenyEditDate,Creator,Owner";
+        var url = $"{_baseUrl}/Items({folderId})/Children?$select={select}&$expand=Creator,Owner&$top=1000";
         var json = await GetJsonAsync(url, ct);
 
         var result = new List<ShareFileItemInfo>();
@@ -156,7 +157,8 @@ public sealed class ShareFileClient : IDisposable
                 CreationDate = TryGetDate(item, "CreationDate"),
                 ModifiedDate = TryGetDate(item, "ClientModifiedDate") ?? TryGetDate(item, "ProgenyEditDate"),
                 CreatorName = TryGetPersonName(item, "Creator"),
-                CreatorCompany = TryGetPersonCompany(item, "Creator")
+                CreatorCompany = TryGetPersonCompany(item, "Creator"),
+                OwnerName = TryGetPersonName(item, "Owner")
             };
             result.Add(info);
         }

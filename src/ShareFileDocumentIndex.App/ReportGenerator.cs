@@ -39,7 +39,7 @@ public sealed class ReportGenerator
             {
                 Kind = child.IsFolder ? "Folder" : GetKind(child.Name),
                 Title = child.Name,
-                Ownership = child.CreatorName ?? "",
+                Ownership = child.OwnerName ?? child.CreatorName ?? "",
                 Id = child.Id,
                 DocumentSize = child.IsFolder ? "" : FormatSize(child.FileSizeBytes),
                 FolderPath = folderPath,
