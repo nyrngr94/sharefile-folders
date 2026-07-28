@@ -3,8 +3,8 @@
 A small Windows desktop app that generates an Excel "Document Index" report for any
 client folder in ShareFile — modeled on the Intralinks Document Index report format.
 
-Each person signs in with their own ShareFile email/password, picks a client folder,
-and gets an `.xlsx` file.
+Each person signs in through a real ShareFile sign-in page in their browser (MFA
+included), picks a client folder, and gets an `.xlsx` file.
 
 ## Report columns
 
@@ -20,10 +20,22 @@ doesn't always have this data populated on every item, so those cells may be bla
 `appsettings.json` — that file only holds placeholders and is safe to check in.
 Real credentials go in a second file that Git is configured to ignore.
 
-1. **Reuse the existing ShareFile API app** (the one already registered for Cowork) —
-   no need to create a new one. You need its **Client ID** and **Client Secret**, plus
-   your firm's ShareFile subdomain (the part before `.sharefile.com` in your ShareFile
-   URL, e.g. `calderassociates`).
+1. **Register a new, dedicated ShareFile API app** (don't reuse the Cowork one — this
+   app needs a specific Redirect URI that Cowork's registration won't have, and
+   ShareFile requires that Redirect URI to be a real `https://` address — it rejects
+   `localhost`/`127.0.0.1` outright). In ShareFile, go to "Get an API Key" and create
+   an app with:
+   - **Redirect URI**: `https://httpbin.org/anything` (must match exactly — this is
+     hardcoded in `ShareFileClient.cs` as `ShareFileClient.RedirectUri`). httpbin just
+     echoes the request back as JSON, so the authorization code ShareFile appends shows
+     up directly on the page for you to copy — no hosting or setup needed.
+   - Record the **Client ID** and **Client Secret** it gives you, plus your firm's
+     ShareFile subdomain (the part before `.sharefile.com` in your ShareFile URL, e.g.
+     `calderassociates`).
+
+   This uses the OAuth2 **authorization code** flow (a real browser sign-in, MFA
+   included) rather than a password grant — ShareFile's password grant can't satisfy
+   an MFA challenge, so it fails even with correct credentials on MFA-enabled accounts.
 2. In `src/ShareFileDocumentIndex.App/`, copy `appsettings.local.json.example` to a new
    file named **`appsettings.local.json`** (this exact name is in `.gitignore`, so Git
    will never track it), and fill in your real values:
@@ -69,14 +81,19 @@ dotnet publish src/ShareFileDocumentIndex.App -c Release -r win-x64 --self-conta
 
 This produces `publish/ShareFileDocumentIndex.exe`. Copy that file **and** your
 `appsettings.local.json` (filled in with your firm's Client ID/Secret) next to it on
-each coworker's machine — they only ever need to enter their own ShareFile email and
-password. Distribute `appsettings.local.json` directly (e.g. a shared drive, not email)
-rather than via this public repo.
+each coworker's machine — they only ever need to sign in through the browser window
+that pops up with their own ShareFile login (MFA included). Distribute
+`appsettings.local.json` directly (e.g. a shared drive, not email) rather than via this
+public repo.
 
 ## How it works
 
-- Signs in via ShareFile's OAuth2 password grant (each user's own credentials — the
-  Client ID/Secret only identify the app, they don't grant access on their own).
+- Clicking "Sign In with ShareFile" opens your default browser to ShareFile's real
+  sign-in page (`/oauth/authorize`). Once you sign in (MFA included), ShareFile
+  redirects to `https://httpbin.org/anything?code=...`, which displays that request
+  back as JSON — copy the value of `"code"` from the `"args"` section and paste it into
+  the app, which exchanges it for an access token. The Client ID/Secret only identify
+  the app itself, they don't grant access to any data on their own.
 - Lists the folders under Home (or `RootFolderPath`) so you can pick a client.
 - Recursively walks the selected folder via the ShareFile v3 REST API, collecting
   metadata for every file and subfolder.

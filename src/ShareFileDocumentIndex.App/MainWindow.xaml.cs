@@ -21,37 +21,46 @@ public partial class MainWindow : Window
         _settings = AppSettings.Load();
     }
 
-    private async void SignInButton_Click(object sender, RoutedEventArgs e)
+    private void SignInButton_Click(object sender, RoutedEventArgs e)
     {
-        var email = EmailBox.Text.Trim();
-        var password = PasswordBox.Password;
-
-        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
-        {
-            SignInStatus.Text = "Enter your ShareFile email and password.";
-            return;
-        }
-
         if (string.IsNullOrWhiteSpace(_settings.ShareFile.ClientId) ||
-            _settings.ShareFile.ClientId.StartsWith("PASTE_"))
+            _settings.ShareFile.ClientId.StartsWith("PASTE_") ||
+            _settings.ShareFile.ClientId.StartsWith("Add "))
         {
-            SignInStatus.Text = "appsettings.json is missing the ShareFile Client ID/Secret. Ask IT to fill it in.";
+            SignInStatus.Text = "appsettings.local.json is missing the ShareFile Client ID/Secret. Ask IT to fill it in.";
             return;
         }
 
-        SignInButton.IsEnabled = false;
+        SignInStatus.Text = "";
+
+        var authorizeUrl = _client.BuildAuthorizeUrl(_settings.ShareFile.Subdomain, _settings.ShareFile.ClientId);
+        Process.Start(new ProcessStartInfo(authorizeUrl) { UseShellExecute = true });
+
+        CodeEntryPanel.Visibility = Visibility.Visible;
+        StatusText.Text = "Sign in using the browser window, then paste the code it shows you above.";
+    }
+
+    private async void ContinueButton_Click(object sender, RoutedEventArgs e)
+    {
+        var code = CodeBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            SignInStatus.Text = "Paste the code from the browser page first.";
+            return;
+        }
+
+        ContinueButton.IsEnabled = false;
         SignInStatus.Text = "";
         StatusText.Text = "Signing in...";
         ProgressBar.Visibility = Visibility.Visible;
 
         try
         {
-            await _client.SignInAsync(
+            await _client.CompleteSignInAsync(
                 _settings.ShareFile.Subdomain,
                 _settings.ShareFile.ClientId,
                 _settings.ShareFile.ClientSecret,
-                email,
-                password);
+                code);
 
             _rootFolderId = await _client.GetHomeFolderIdAsync(_settings.ShareFile.RootFolderPath);
             await LoadFolderListAsync();
@@ -68,7 +77,7 @@ public partial class MainWindow : Window
         }
         finally
         {
-            SignInButton.IsEnabled = true;
+            ContinueButton.IsEnabled = true;
             ProgressBar.Visibility = Visibility.Collapsed;
         }
     }

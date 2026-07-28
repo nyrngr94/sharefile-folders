@@ -28,23 +28,39 @@ public sealed class ShareFileAuthException : Exception
 
 public sealed class ShareFileClient : IDisposable
 {
+    // Must exactly match the Redirect URI configured on the ShareFile API app.
+    // ShareFile requires a real https:// URL here -- it rejects localhost/127.0.0.1.
+    // httpbin.org/anything just echoes the request back as JSON, so the "code" query
+    // param ShareFile appends shows up directly in the page for the user to copy.
+    public const string RedirectUri = "https://httpbin.org/anything";
+
     private readonly HttpClient _http = new();
     private string _baseUrl = "";
 
     public bool IsSignedIn { get; private set; }
 
-    public async Task SignInAsync(string subdomain, string clientId, string clientSecret, string username, string password, CancellationToken ct = default)
+    public string BuildAuthorizeUrl(string subdomain, string clientId)
     {
         subdomain = subdomain.Trim().Replace("https://", "").Replace(".sharefile.com", "");
-        var tokenUrl = $"https://{subdomain}.sharefile.com/oauth/token";
+        return $"https://{subdomain}.sharefile.com/oauth/authorize" +
+            $"?client_id={Uri.EscapeDataString(clientId)}" +
+            "&response_type=code" +
+            $"&redirect_uri={Uri.EscapeDataString(RedirectUri)}";
+    }
 
+    public async Task CompleteSignInAsync(string subdomain, string clientId, string clientSecret, string code, CancellationToken ct = default)
+    {
+        subdomain = subdomain.Trim().Replace("https://", "").Replace(".sharefile.com", "");
+        code = code.Trim();
+
+        var tokenUrl = $"https://{subdomain}.sharefile.com/oauth/token";
         var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            ["grant_type"] = "password",
+            ["grant_type"] = "authorization_code",
             ["client_id"] = clientId,
             ["client_secret"] = clientSecret,
-            ["username"] = username,
-            ["password"] = password
+            ["code"] = code,
+            ["redirect_uri"] = RedirectUri
         });
 
         using var response = await _http.PostAsync(tokenUrl, form, ct);
