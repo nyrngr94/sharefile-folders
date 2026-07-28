@@ -163,21 +163,28 @@ public sealed class ShareFileClient : IDisposable
         return result;
     }
 
+    public async Task<string> GetRawChildrenDebugJsonAsync(string folderId, CancellationToken ct = default)
+    {
+        var url = $"{_baseUrl}/Items({folderId})/Children?$expand=Creator,Owner&$top=3";
+        using var response = await _http.GetAsync(url, ct);
+        var body = await response.Content.ReadAsStringAsync(ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            return $"Request failed ({(int)response.StatusCode}):\n{body}";
+        }
+
+        using var doc = JsonDocument.Parse(body);
+        return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+    }
+
     public async Task<string?> GetItemWebLinkAsync(string itemId, CancellationToken ct = default)
     {
-        try
+        var json = await GetJsonAsync($"{_baseUrl}/Items({itemId})/Redirection", ct);
+        if (json.TryGetProperty("Uri", out var uriEl))
         {
-            var json = await GetJsonAsync($"{_baseUrl}/Items({itemId})/Redirection", ct);
-            if (json.TryGetProperty("Uri", out var uriEl))
-            {
-                return uriEl.GetString();
-            }
-            return null;
+            return uriEl.GetString();
         }
-        catch
-        {
-            return null;
-        }
+        throw new InvalidOperationException("Redirection response did not contain a Uri field.");
     }
 
     private static bool IsFolderItem(JsonElement item)

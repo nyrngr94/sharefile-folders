@@ -112,6 +112,40 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void DebugButton_Click(object sender, RoutedEventArgs e)
+    {
+        var selectedIndex = FolderListBox.SelectedIndex;
+        if (selectedIndex < 0)
+        {
+            StatusText.Text = "Select a client folder first.";
+            return;
+        }
+
+        var folder = _folders[selectedIndex];
+
+        DebugButton.IsEnabled = false;
+        StatusText.Text = "Fetching raw API response...";
+        ProgressBar.Visibility = Visibility.Visible;
+
+        try
+        {
+            var json = await _client.GetRawChildrenDebugJsonAsync(folder.Id);
+            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sharefile-debug.json");
+            System.IO.File.WriteAllText(path, json);
+            StatusText.Text = $"Saved to {path}";
+            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Debug fetch failed: {ex.Message}";
+        }
+        finally
+        {
+            DebugButton.IsEnabled = true;
+            ProgressBar.Visibility = Visibility.Collapsed;
+        }
+    }
+
     private async void GenerateButton_Click(object sender, RoutedEventArgs e)
     {
         var selectedIndex = FolderListBox.SelectedIndex;
@@ -148,7 +182,9 @@ public partial class MainWindow : Window
             StatusText.Text = "Writing Excel file...";
             ExcelReportWriter.Write(dialog.FileName, folder.Name, rows);
 
-            StatusText.Text = $"Done. {rows.Count} item(s) written to {dialog.FileName}";
+            StatusText.Text = generator.LinkFetchError is null
+                ? $"Done. {rows.Count} item(s) written to {dialog.FileName}"
+                : $"Done. {rows.Count} item(s) written to {dialog.FileName}. Document links were skipped: {generator.LinkFetchError}";
 
             var result = MessageBox.Show("Report generated. Open it now?", "Done", MessageBoxButton.YesNo, MessageBoxImage.Information);
             if (result == MessageBoxResult.Yes)

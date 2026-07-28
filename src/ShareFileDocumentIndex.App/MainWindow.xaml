@@ -46,7 +46,8 @@
         <ListBox x:Name="FolderListBox" Grid.Row="2" Visibility="Collapsed" Margin="0,0,0,10" />
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" Visibility="{Binding ElementName=FolderPanel, Path=Visibility}">
-            <Button x:Name="GenerateButton" Content="Generate Report..." Click="GenerateButton_Click" Width="150" />
+            <Button x:Name="GenerateButton" Content="Generate Report..." Click="GenerateButton_Click" Width="150" Margin="0,0,10,0" />
+            <Button x:Name="DebugButton" Content="Save Debug Info..." Click="DebugButton_Click" Width="150" />
         </StackPanel>
 
         <StackPanel Grid.Row="4" Margin="0,10,0,0">
