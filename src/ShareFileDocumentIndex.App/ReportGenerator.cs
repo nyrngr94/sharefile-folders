@@ -11,6 +11,8 @@ public sealed class ReportGenerator
     private readonly ShareFileClient _client;
     private readonly bool _includeDocumentLinks;
 
+    public string? LinkFetchError { get; private set; }
+
     public ReportGenerator(ShareFileClient client, bool includeDocumentLinks)
     {
         _client = client;
@@ -48,9 +50,16 @@ public sealed class ReportGenerator
                 DocumentLink = ""
             };
 
-            if (_includeDocumentLinks)
+            if (_includeDocumentLinks && LinkFetchError is null)
             {
-                row.DocumentLink = await _client.GetItemWebLinkAsync(child.Id, ct) ?? "";
+                try
+                {
+                    row.DocumentLink = await _client.GetItemWebLinkAsync(child.Id, ct) ?? "";
+                }
+                catch (Exception ex)
+                {
+                    LinkFetchError = ex.Message;
+                }
             }
 
             rows.Add(row);
