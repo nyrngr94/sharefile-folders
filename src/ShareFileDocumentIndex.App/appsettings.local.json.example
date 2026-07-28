@@ -1,0 +1,7 @@
+{
+  "ShareFile": {
+    "Subdomain": "calderassociates",
+    "ClientId": "<your real ShareFile Client ID>",
+    "ClientSecret": "<your real ShareFile Client Secret>"
+  }
+}
