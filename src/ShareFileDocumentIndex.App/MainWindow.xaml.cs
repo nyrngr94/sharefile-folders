@@ -62,13 +62,15 @@ public partial class MainWindow : Window
                 _settings.ShareFile.ClientSecret,
                 code);
 
-            _rootFolderId = await _client.GetHomeFolderIdAsync(_settings.ShareFile.RootFolderPath);
-            await LoadFolderListAsync();
-
             SignInPanel.Visibility = Visibility.Collapsed;
             FolderPanel.Visibility = Visibility.Visible;
             FolderListBox.Visibility = Visibility.Visible;
+            RootFolderBox.Text = string.IsNullOrWhiteSpace(_settings.ShareFile.RootFolderPath)
+                ? "allshared"
+                : _settings.ShareFile.RootFolderPath;
             StatusText.Text = "";
+
+            await LoadFolderListAsync();
         }
         catch (Exception ex)
         {
@@ -93,9 +95,12 @@ public partial class MainWindow : Window
         ProgressBar.Visibility = Visibility.Visible;
         try
         {
+            _rootFolderId = await _client.GetRootFolderIdAsync(RootFolderBox.Text);
             _folders = await _client.GetSubfolderListAsync(_rootFolderId);
             FolderListBox.ItemsSource = _folders.Select(f => f.Name).ToList();
-            StatusText.Text = $"{_folders.Count} folder(s) found.";
+            StatusText.Text = _folders.Count > 0
+                ? $"{_folders.Count} folder(s) found."
+                : "No subfolders found here. Try a different root above (e.g. 'home' or 'allshared') and click Load Folders again.";
         }
         catch (Exception ex)
         {

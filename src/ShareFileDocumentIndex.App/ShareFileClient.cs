@@ -90,16 +90,22 @@ public sealed class ShareFileClient : IDisposable
         IsSignedIn = true;
     }
 
-    public async Task<string> GetHomeFolderIdAsync(string? rootFolderPath, CancellationToken ct = default)
+    private static readonly HashSet<string> SpecialFolderIds = new(StringComparer.OrdinalIgnoreCase)
     {
-        if (string.IsNullOrWhiteSpace(rootFolderPath))
+        "home", "allshared", "favorites", "top", "connectors"
+    };
+
+    public async Task<string> GetRootFolderIdAsync(string? rootFolderPath, CancellationToken ct = default)
+    {
+        var value = string.IsNullOrWhiteSpace(rootFolderPath) ? "allshared" : rootFolderPath.Trim();
+
+        if (SpecialFolderIds.Contains(value))
         {
-            var json = await GetJsonAsync($"{_baseUrl}/Items(home)", ct);
+            var json = await GetJsonAsync($"{_baseUrl}/Items({value})", ct);
             return json.GetProperty("Id").GetString()!;
         }
 
-        var path = rootFolderPath.Trim();
-        if (!path.StartsWith("/")) path = "/" + path;
+        var path = value.StartsWith("/") ? value : "/" + value;
         var encoded = Uri.EscapeDataString(path);
         var byPath = await GetJsonAsync($"{_baseUrl}/Items/ByPath?path={encoded}", ct);
         return byPath.GetProperty("Id").GetString()!;
@@ -107,13 +113,12 @@ public sealed class ShareFileClient : IDisposable
 
     public async Task<List<(string Id, string Name)>> GetSubfolderListAsync(string parentId, CancellationToken ct = default)
     {
-        var url = $"{_baseUrl}/Items({parentId})/Children?$select=Id,Name,FileName&$top=1000";
+        var url = $"{_baseUrl}/Items({parentId})/Children?$select=Id,Name,FileName,FileCount&$top=1000";
         var json = await GetJsonAsync(url, ct);
         var result = new List<(string, string)>();
         foreach (var item in json.GetProperty("value").EnumerateArray())
         {
-            var odataType = item.TryGetProperty("odata.type", out var t) ? t.GetString() ?? "" : "";
-            if (!odataType.Contains("Folder", StringComparison.OrdinalIgnoreCase))
+            if (!IsFolderItem(item))
             {
                 continue;
             }
@@ -129,15 +134,14 @@ public sealed class ShareFileClient : IDisposable
 
     public async Task<List<ShareFileItemInfo>> GetChildrenAsync(string folderId, CancellationToken ct = default)
     {
-        var select = "Id,Name,FileName,FileSizeBytes,CreationDate,ClientModifiedDate,ProgenyEditDate";
+        var select = "Id,Name,FileName,FileSizeBytes,FileCount,CreationDate,ClientModifiedDate,ProgenyEditDate";
         var url = $"{_baseUrl}/Items({folderId})/Children?$select={select}&$expand=Creator&$top=1000";
         var json = await GetJsonAsync(url, ct);
 
         var result = new List<ShareFileItemInfo>();
         foreach (var item in json.GetProperty("value").EnumerateArray())
         {
-            var odataType = item.TryGetProperty("odata.type", out var t) ? t.GetString() ?? "" : "";
-            var isFolder = odataType.Contains("Folder", StringComparison.OrdinalIgnoreCase);
+            var isFolder = IsFolderItem(item);
 
             string name = item.TryGetProperty("FileName", out var fn) && !string.IsNullOrEmpty(fn.GetString())
                 ? fn.GetString()!
@@ -174,6 +178,19 @@ public sealed class ShareFileClient : IDisposable
         {
             return null;
         }
+    }
+
+    private static bool IsFolderItem(JsonElement item)
+    {
+        if (item.TryGetProperty("odata.type", out var t))
+        {
+            var typeStr = t.GetString() ?? "";
+            if (typeStr.Contains("Folder", StringComparison.OrdinalIgnoreCase)) return true;
+            if (typeStr.Contains("File", StringComparison.OrdinalIgnoreCase)) return false;
+        }
+
+        // Fallback if the odata type annotation isn't present: only Folder items expose FileCount.
+        return item.TryGetProperty("FileCount", out _);
     }
 
     private static DateTime? TryGetDate(JsonElement item, string propertyName)

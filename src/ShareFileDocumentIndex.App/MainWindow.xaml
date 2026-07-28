@@ -31,13 +31,21 @@
         <!-- Folder selection panel -->
         <StackPanel x:Name="FolderPanel" Grid.Row="1" Visibility="Collapsed" Margin="0,0,0,10">
             <TextBlock Text="Select a client folder" FontWeight="Bold" FontSize="16" Margin="0,0,0,10" />
+            <TextBlock Text="Root folder (try 'allshared' for Shared Folders, 'home' for your personal Home, or a path like /Clients):" TextWrapping="Wrap" Margin="0,0,0,4" />
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="RootFolderBox" Grid.Column="0" Margin="0,0,8,0" />
+                <Button x:Name="RefreshButton" Grid.Column="1" Content="Load Folders" Click="RefreshButton_Click" />
+            </Grid>
             <CheckBox x:Name="IncludeLinksCheck" Content="Include document links (adds one API call per document, slower)" IsChecked="True" />
         </StackPanel>
 
         <ListBox x:Name="FolderListBox" Grid.Row="2" Visibility="Collapsed" Margin="0,0,0,10" />
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" Visibility="{Binding ElementName=FolderPanel, Path=Visibility}">
-            <Button x:Name="RefreshButton" Content="Refresh Folder List" Click="RefreshButton_Click" Margin="0,0,10,0" />
             <Button x:Name="GenerateButton" Content="Generate Report..." Click="GenerateButton_Click" Width="150" />
         </StackPanel>
 
