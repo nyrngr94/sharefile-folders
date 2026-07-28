@@ -16,28 +16,34 @@ doesn't always have this data populated on every item, so those cells may be bla
 
 ## One-time setup (whoever sets this up for the firm)
 
+**This repo is public**, so the real Client ID/Secret must never be committed to
+`appsettings.json` — that file only holds placeholders and is safe to check in.
+Real credentials go in a second file that Git is configured to ignore.
+
 1. **Reuse the existing ShareFile API app** (the one already registered for Cowork) —
    no need to create a new one. You need its **Client ID** and **Client Secret**, plus
    your firm's ShareFile subdomain (the part before `.sharefile.com` in your ShareFile
    URL, e.g. `calderassociates`).
-2. Open `src/ShareFileDocumentIndex.App/appsettings.json` and fill in:
+2. In `src/ShareFileDocumentIndex.App/`, copy `appsettings.local.json.example` to a new
+   file named **`appsettings.local.json`** (this exact name is in `.gitignore`, so Git
+   will never track it), and fill in your real values:
    ```json
    {
      "ShareFile": {
        "Subdomain": "calderassociates",
        "ClientId": "<client id>",
-       "ClientSecret": "<client secret>",
-       "RootFolderPath": ""
+       "ClientSecret": "<client secret>"
      }
    }
    ```
-   - Leave `RootFolderPath` empty to list folders from each user's ShareFile Home.
+   The app reads `appsettings.json` first, then layers `appsettings.local.json` on top
+   if present — so `appsettings.local.json` only needs the fields you're overriding.
+   - Leave `RootFolderPath` unset to list folders from each user's ShareFile Home.
    - If all client folders live under one shared parent folder (e.g. a "Clients"
-     folder), set `RootFolderPath` to its path, e.g. `"/Clients"`.
-3. **Do not commit real secrets to a public repo.** If this repo is or becomes public,
-   move `ClientId`/`ClientSecret` out of source control (e.g. into a local, gitignored
-   `appsettings.local.json` merged at build time, or an environment variable) — ask if
-   you'd like that wired up.
+     folder), set `RootFolderPath` to its path, e.g. `"/Clients"`, in either file.
+3. Double-check before every commit that `appsettings.local.json` doesn't show up in
+   GitHub Desktop's changed-files list. If it ever does, something's wrong with the
+   `.gitignore` match — stop and ask before committing.
 
 ## Build & run (Visual Studio)
 
@@ -61,10 +67,11 @@ Publish a self-contained single EXE so coworkers can just double-click it:
 dotnet publish src/ShareFileDocumentIndex.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
 ```
 
-This produces `publish/ShareFileDocumentIndex.exe`. Copy that file **and** the
-`appsettings.json` next to it (already filled in with your firm's Client ID/Secret) to
+This produces `publish/ShareFileDocumentIndex.exe`. Copy that file **and** your
+`appsettings.local.json` (filled in with your firm's Client ID/Secret) next to it on
 each coworker's machine — they only ever need to enter their own ShareFile email and
-password.
+password. Distribute `appsettings.local.json` directly (e.g. a shared drive, not email)
+rather than via this public repo.
 
 ## How it works
 
