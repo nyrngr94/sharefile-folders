@@ -135,7 +135,9 @@ public sealed class ShareFileClient : IDisposable
 
     public async Task<List<ShareFileItemInfo>> GetChildrenAsync(string folderId, CancellationToken ct = default)
     {
-        var select = "Id,Name,FileName,FileSizeBytes,FileCount,CreationDate,ClientModifiedDate,ProgenyEditDate,Creator,Owner";
+        var select = "Id,Name,FileName,FileSizeBytes,FileCount,CreationDate,ClientModifiedDate,ProgenyEditDate," +
+            "Creator/FirstName,Creator/LastName,Creator/Company,Creator/Email," +
+            "Owner/FirstName,Owner/LastName,Owner/Company,Owner/Email";
         var url = $"{_baseUrl}/Items({folderId})/Children?$select={select}&$expand=Creator,Owner&$top=1000";
         var json = await GetJsonAsync(url, ct);
 
@@ -169,7 +171,9 @@ public sealed class ShareFileClient : IDisposable
     {
         // Deliberately the exact same $select/$expand as GetChildrenAsync, so this
         // dump reflects precisely what the real report call receives.
-        var select = "Id,Name,FileName,FileSizeBytes,FileCount,CreationDate,ClientModifiedDate,ProgenyEditDate,Creator,Owner";
+        var select = "Id,Name,FileName,FileSizeBytes,FileCount,CreationDate,ClientModifiedDate,ProgenyEditDate," +
+            "Creator/FirstName,Creator/LastName,Creator/Company,Creator/Email," +
+            "Owner/FirstName,Owner/LastName,Owner/Company,Owner/Email";
         var url = $"{_baseUrl}/Items({folderId})/Children?$select={select}&$expand=Creator,Owner&$top=3";
         using var response = await _http.GetAsync(url, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
