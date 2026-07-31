@@ -182,9 +182,13 @@ public partial class MainWindow : Window
             StatusText.Text = "Writing Excel file...";
             ExcelReportWriter.Write(dialog.FileName, folder.Name, rows);
 
-            StatusText.Text = generator.LinkFetchError is null
-                ? $"Done. {rows.Count} item(s) written to {dialog.FileName}"
-                : $"Done. {rows.Count} item(s) written to {dialog.FileName}. Document links were skipped: {generator.LinkFetchError}";
+            var baseMessage = $"Done. {rows.Count} item(s) written to {dialog.FileName}";
+            StatusText.Text = generator.LinkFetchError switch
+            {
+                null => baseMessage,
+                _ when generator.LinkFetchGaveUp => $"{baseMessage}. Document links stopped after repeated failures: {generator.LinkFetchError}",
+                _ => $"{baseMessage}. Some document links could not be generated: {generator.LinkFetchError}"
+            };
 
             var result = MessageBox.Show("Report generated. Open it now?", "Done", MessageBoxButton.YesNo, MessageBoxImage.Information);
             if (result == MessageBoxResult.Yes)

@@ -8,10 +8,14 @@ namespace ShareFileDocumentIndex.App;
 
 public sealed class ReportGenerator
 {
+    private const int MaxConsecutiveLinkFailures = 5;
+
     private readonly ShareFileClient _client;
     private readonly bool _includeDocumentLinks;
+    private int _consecutiveLinkFailures;
 
     public string? LinkFetchError { get; private set; }
+    public bool LinkFetchGaveUp { get; private set; }
 
     public ReportGenerator(ShareFileClient client, bool includeDocumentLinks)
     {
@@ -50,15 +54,21 @@ public sealed class ReportGenerator
                 DocumentLink = ""
             };
 
-            if (_includeDocumentLinks && LinkFetchError is null)
+            if (_includeDocumentLinks && !child.IsFolder && !LinkFetchGaveUp)
             {
                 try
                 {
                     row.DocumentLink = await _client.GetItemWebLinkAsync(child.Id, ct) ?? "";
+                    _consecutiveLinkFailures = 0;
                 }
                 catch (Exception ex)
                 {
                     LinkFetchError = ex.Message;
+                    _consecutiveLinkFailures++;
+                    if (_consecutiveLinkFailures >= MaxConsecutiveLinkFailures)
+                    {
+                        LinkFetchGaveUp = true;
+                    }
                 }
             }
 
