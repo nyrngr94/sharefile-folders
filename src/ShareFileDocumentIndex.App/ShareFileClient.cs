@@ -167,7 +167,10 @@ public sealed class ShareFileClient : IDisposable
 
     public async Task<string> GetRawChildrenDebugJsonAsync(string folderId, CancellationToken ct = default)
     {
-        var url = $"{_baseUrl}/Items({folderId})/Children?$expand=Creator,Owner&$top=3";
+        // Deliberately the exact same $select/$expand as GetChildrenAsync, so this
+        // dump reflects precisely what the real report call receives.
+        var select = "Id,Name,FileName,FileSizeBytes,FileCount,CreationDate,ClientModifiedDate,ProgenyEditDate,Creator,Owner";
+        var url = $"{_baseUrl}/Items({folderId})/Children?$select={select}&$expand=Creator,Owner&$top=3";
         using var response = await _http.GetAsync(url, ct);
         var body = await response.Content.ReadAsStringAsync(ct);
         if (!response.IsSuccessStatusCode)
