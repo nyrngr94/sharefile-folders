@@ -19,6 +19,49 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _settings = AppSettings.Load();
+        Loaded += MainWindow_Loaded;
+    }
+
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(_settings.ShareFile.ClientId) ||
+            _settings.ShareFile.ClientId.StartsWith("PASTE_") ||
+            _settings.ShareFile.ClientId.StartsWith("Add "))
+        {
+            return;
+        }
+
+        StatusText.Text = "Checking for a saved sign-in...";
+        ProgressBar.Visibility = Visibility.Visible;
+        try
+        {
+            var restored = await _client.TryRestoreSessionAsync(_settings.ShareFile.ClientId, _settings.ShareFile.ClientSecret);
+            if (restored)
+            {
+                await OnSignedInAsync();
+            }
+            else
+            {
+                StatusText.Text = "";
+            }
+        }
+        finally
+        {
+            ProgressBar.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private async Task OnSignedInAsync()
+    {
+        SignInPanel.Visibility = Visibility.Collapsed;
+        FolderPanel.Visibility = Visibility.Visible;
+        FolderListBox.Visibility = Visibility.Visible;
+        RootFolderBox.Text = string.IsNullOrWhiteSpace(_settings.ShareFile.RootFolderPath)
+            ? "allshared"
+            : _settings.ShareFile.RootFolderPath;
+        StatusText.Text = "";
+
+        await LoadFolderListAsync();
     }
 
     private void SignInButton_Click(object sender, RoutedEventArgs e)
@@ -62,15 +105,7 @@ public partial class MainWindow : Window
                 _settings.ShareFile.ClientSecret,
                 code);
 
-            SignInPanel.Visibility = Visibility.Collapsed;
-            FolderPanel.Visibility = Visibility.Visible;
-            FolderListBox.Visibility = Visibility.Visible;
-            RootFolderBox.Text = string.IsNullOrWhiteSpace(_settings.ShareFile.RootFolderPath)
-                ? "allshared"
-                : _settings.ShareFile.RootFolderPath;
-            StatusText.Text = "";
-
-            await LoadFolderListAsync();
+            await OnSignedInAsync();
         }
         catch (Exception ex)
         {

@@ -94,6 +94,12 @@ public repo.
   back as JSON — copy the value of `"code"` from the `"args"` section and paste it into
   the app, which exchanges it for an access token. The Client ID/Secret only identify
   the app itself, they don't grant access to any data on their own.
+- After signing in once, the session (access token + refresh token) is saved to
+  `%LOCALAPPDATA%\ShareFileDocumentIndex\session.dat`, encrypted with Windows DPAPI so
+  only that Windows user account can decrypt it. On future launches the app tries this
+  saved session first and skips straight to the folder picker — no browser, no code to
+  paste — refreshing it silently in the background as needed. The sign-in screen only
+  reappears if there's no saved session yet, or ShareFile has revoked it.
 - Lists the folders under Home (or `RootFolderPath`) so you can pick a client.
 - Recursively walks the selected folder via the ShareFile v3 REST API, collecting
   metadata for every file and subfolder.
@@ -102,9 +108,18 @@ public repo.
 
 ## Known limitations
 
+- **`Document Link` does not currently work.** ShareFile's `/Items(id)/Redirection`
+  endpoint (used to get a browser link for an item) returns a `500 InternalServerError`
+  for this account on both files and folders -- this is a ShareFile-side server error,
+  not a bug in this app. "Include document links" is left checked by default and the
+  app will still try, but it gives up gracefully after a few consecutive failures and
+  leaves the column blank rather than breaking the rest of the report. Worth revisiting
+  if ShareFile support ever has an explanation for the 500, or if a "create a Share"
+  based approach is wanted instead (a different, heavier API call -- see git history
+  around this note for context).
 - Very large client folders (thousands of documents) may take a while, especially with
-  "Include document links" checked, since that adds one extra API call per document.
-  Uncheck it for a faster run without the `Document Link` column populated.
+  "Include document links" checked, since that adds one extra API call per document
+  until it gives up. Uncheck it to skip that entirely for a faster run.
 - `Ownership` reflects ShareFile's `Owner` field, falling back to the creator if an
   item has no distinct owner set.
 - `Organization` reflects the creator's Company field in ShareFile, which isn't always

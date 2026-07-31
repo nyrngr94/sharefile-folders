@@ -80,15 +80,95 @@ public sealed class ShareFileClient : IDisposable
             throw new ShareFileAuthException($"ShareFile sign-in failed: {errorEl.GetString()}");
         }
 
+        var token = ApplyTokenResponse(root, subdomain, existingRefreshToken: null);
+        TokenStore.Save(token);
+    }
+
+    // Tries to resume a previously saved session without any user interaction.
+    // Returns false if there's no saved session, or it can't be refreshed (revoked,
+    // corrupted, etc.) -- callers should fall back to the normal sign-in flow.
+    public async Task<bool> TryRestoreSessionAsync(string clientId, string clientSecret, CancellationToken ct = default)
+    {
+        var stored = TokenStore.Load();
+        if (stored is null || string.IsNullOrEmpty(stored.AccountSubdomain))
+        {
+            return false;
+        }
+
+        if (stored.ExpiresAtUtc > DateTime.UtcNow.AddMinutes(2))
+        {
+            _baseUrl = $"https://{stored.AccountSubdomain}.{stored.ApiCp}/sf/v3";
+            _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", stored.AccessToken);
+            IsSignedIn = true;
+            return true;
+        }
+
+        if (string.IsNullOrEmpty(stored.RefreshToken))
+        {
+            TokenStore.Clear();
+            return false;
+        }
+
+        try
+        {
+            var tokenUrl = $"https://{stored.AccountSubdomain}.sharefile.com/oauth/token";
+            var form = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "refresh_token",
+                ["client_id"] = clientId,
+                ["client_secret"] = clientSecret,
+                ["refresh_token"] = stored.RefreshToken
+            });
+
+            using var response = await _http.PostAsync(tokenUrl, form, ct);
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                TokenStore.Clear();
+                return false;
+            }
+
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("error", out _))
+            {
+                TokenStore.Clear();
+                return false;
+            }
+
+            var refreshed = ApplyTokenResponse(root, stored.AccountSubdomain, stored.RefreshToken);
+            TokenStore.Save(refreshed);
+            return true;
+        }
+        catch
+        {
+            TokenStore.Clear();
+            return false;
+        }
+    }
+
+    private StoredToken ApplyTokenResponse(JsonElement root, string fallbackSubdomain, string? existingRefreshToken)
+    {
         var accessToken = root.GetProperty("access_token").GetString()
             ?? throw new ShareFileAuthException("ShareFile did not return an access token.");
 
-        var apicp = root.TryGetProperty("apicp", out var apicpEl) ? apicpEl.GetString() : "sf-api.com";
-        var accountSubdomain = root.TryGetProperty("subdomain", out var sdEl) ? sdEl.GetString() : subdomain;
+        var apicp = root.TryGetProperty("apicp", out var apicpEl) ? apicpEl.GetString() ?? "sf-api.com" : "sf-api.com";
+        var accountSubdomain = root.TryGetProperty("subdomain", out var sdEl) ? sdEl.GetString() ?? fallbackSubdomain : fallbackSubdomain;
+        var expiresIn = root.TryGetProperty("expires_in", out var expEl) && expEl.TryGetInt32(out var seconds) ? seconds : 3600;
+        var refreshToken = root.TryGetProperty("refresh_token", out var rtEl) ? rtEl.GetString() : null;
 
         _baseUrl = $"https://{accountSubdomain}.{apicp}/sf/v3";
         _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
         IsSignedIn = true;
+
+        return new StoredToken
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken ?? existingRefreshToken,
+            ExpiresAtUtc = DateTime.UtcNow.AddSeconds(expiresIn),
+            ApiCp = apicp,
+            AccountSubdomain = accountSubdomain
+        };
     }
 
     private static readonly HashSet<string> SpecialFolderIds = new(StringComparer.OrdinalIgnoreCase)

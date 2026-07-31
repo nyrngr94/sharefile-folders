@@ -40,7 +40,8 @@
                 <TextBox x:Name="RootFolderBox" Grid.Column="0" Margin="0,0,8,0" />
                 <Button x:Name="RefreshButton" Grid.Column="1" Content="Load Folders" Click="RefreshButton_Click" />
             </Grid>
-            <CheckBox x:Name="IncludeLinksCheck" Content="Include document links (adds one API call per document, slower)" IsChecked="True" />
+            <CheckBox x:Name="IncludeLinksCheck" Content="Include document links (adds one API call per document, slower)" IsChecked="False" />
+            <TextBlock Text="Note: Document Link currently does not work (ShareFile server error on their end) -- leave this unchecked." Foreground="DarkOrange" TextWrapping="Wrap" FontStyle="Italic" Margin="0,2,0,0" />
         </StackPanel>
 
         <ListBox x:Name="FolderListBox" Grid.Row="2" Visibility="Collapsed" Margin="0,0,0,10" />
